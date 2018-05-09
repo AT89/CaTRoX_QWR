@@ -192,6 +192,33 @@ var StringFormatFlags = {
     no_clip:                 0x00004000
 };
 
+var DT_TOP = 0x00000000;
+var DT_LEFT = 0x00000000;
+var DT_CENTER = 0x00000001;
+var DT_RIGHT = 0x00000002;
+var DT_VCENTER = 0x00000004;
+var DT_BOTTOM = 0x00000008;
+var DT_WORDBREAK = 0x00000010;
+var DT_SINGLELINE = 0x00000020;
+var DT_EXPANDTABS = 0x00000040;
+var DT_TABSTOP = 0x00000080;
+var DT_NOCLIP = 0x00000100;
+var DT_EXTERNALLEADING = 0x00000200;
+var DT_CALCRECT = 0x00000400;
+var DT_NOPREFIX = 0x00000800;  // NOTE: Please use this flag, or a '&' character will become an underline '_'
+var DT_INTERNAL = 0x00001000;
+var DT_EDITCONTROL = 0x00002000;
+var DT_PATH_ELLIPSIS = 0x00004000;
+var DT_END_ELLIPSIS = 0x00008000;
+var DT_MODIFYSTRING = 0x00010000;  // do not use
+var DT_RTLREADING = 0x00020000;
+var DT_WORD_ELLIPSIS = 0x00040000;
+var DT_NOFULLWIDTHCHARBREAK = 0x00080000;
+var DT_HIDEPREFIX = 0x00100000;
+var DT_PREFIXONLY = 0x00200000;
+
+var g_use_gdi_plus = true;
+
 /**
  * @param {?StringFormatFlags=} [format_flags=StringFormatFlags.none]
  * @return {StringFormat}
@@ -208,7 +235,107 @@ function StringFormat(format_flags) {
      * @return {number}
      */
     this.value = function () {
-        return this.alignment << 28 | this.line_alignment << 24 | this.trimming << 20 | this.format_flags;
+        if (g_use_gdi_plus) {
+            return this.alignment << 28 | this.line_alignment << 24 | this.trimming << 20 | this.format_flags;
+        }
+        else {
+            var new_val = 0;
+            switch (this.alignment) {
+                case StringAlignment.near:
+                {
+                    new_val |= DT_LEFT;
+                    break;
+                }
+                case StringAlignment.center:
+                {
+                    new_val |= DT_CENTER;
+                    break;
+                }
+                case StringAlignment.far:
+                {
+                    new_val |= DT_RIGHT;
+                    break;
+                }
+            }
+            switch (this.line_alignment) {
+                case StringAlignment.near:
+                {
+                    new_val |= DT_TOP;
+                    break;
+                }
+                case StringAlignment.center:
+                {
+                    new_val |= DT_VCENTER | DT_SINGLELINE;
+                    break;
+                }
+                case StringAlignment.far:
+                {
+                    new_val |= DT_BOTTOM;
+                    break;
+                }
+            }
+            switch (this.trimming) {
+                case StringTrimming.none:
+                {
+                    break;
+                }
+                case StringTrimming.char:
+                {
+                    new_val |= DT_END_ELLIPSIS;
+                    break;
+                }
+                case StringTrimming.word:
+                {
+                    new_val |= DT_WORD_ELLIPSIS;
+                    break;
+                }
+                case StringTrimming.ellipsis_char:
+                {
+                    new_val |= DT_END_ELLIPSIS;
+                    break;
+                }
+                case StringTrimming.ellipsis_word:
+                {
+                    new_val |= DT_WORD_ELLIPSIS;
+                    break;
+                }
+                case StringTrimming.ellipsis_path:
+                {
+                    new_val |= DT_PATH_ELLIPSIS;
+                    break;
+                }
+            }
+            if (this.format_flags & StringFormatFlags.direction_right_to_left) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.direction_vertical) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.fit_black_box) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.display_format_control) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.no_font_fallback) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.measure_trailing_spaces) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.no_wrap) {
+                ;
+            }
+            if (this.format_flags & StringFormatFlags.line_limit) {
+                new_val |= DT_SINGLELINE;
+            }
+            if (this.format_flags & StringFormatFlags.no_clip) {
+                new_val |= DT_NOCLIP;
+            }
+            new_val |= DT_NOPREFIX;
+
+            return new_val;
+        }
     };
 
     /** @type {StringAlignment} */
@@ -736,3 +863,21 @@ var PanelProperties = (function () {
 var g_properties = PanelProperties.get_instance();
 
 var g_script_list = ['Common.js'];
+
+function DrawText(gr, str, font, colour, x, y, w, h, flags) {
+    if (g_use_gdi_plus) {
+        gr.DrawString(str, font, colour, x, y, w, h, flags);
+    }
+    else {
+        gr.GdiDrawText(str, font, colour, x, y, w, h, flags);
+    }
+}
+
+function MeasureTextWidth(gr, str, font, x, y, w, h, format) {
+    if (g_use_gdi_plus) {
+        return gr.MeasureString(str, font, x, y, w, h, format).Width;
+    }
+    else {
+        return gr.CalcTextWidth(str, font);
+    }
+}
